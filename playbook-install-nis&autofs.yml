@@ -1,0 +1,137 @@
+---
+- name: install and configure nis/autofs
+  hosts: all
+  tasks:
+  - block:
+
+    - name: Install nis and autofs - Ubuntu
+      ansible.builtin.apt:
+        pkg:
+        - nis
+        - autofs
+    - name: Edit /etc/defaultdomain - Ubuntu
+      ansible.builtin.copy:
+        content: 'swamp'
+        dest: /etc/defaultdomain
+    - name: Configure nis server - Ubuntu
+      ansible.builtin.lineinfile:
+        path: /etc/yp.conf
+        line: domain swamp server 128.224.160.15
+        create: yes
+    - name: Restart and enable service ypbind - Ubuntu
+      ansible.builtin.service:
+        name: ypbind
+        state: restarted
+        enabled: yes
+    - name: Configure /etc/nsswitch.conf passwd - Ubuntu
+      ansible.builtin.lineinfile:
+        path: /etc/nsswitch.conf
+        regexp: '^passwd:'
+        line: 'passwd:         files nis winbind systemd'
+    - name: Configure /etc/nsswitch.conf group - Ubuntu
+      ansible.builtin.lineinfile:
+        path: /etc/nsswitch.conf
+        regexp: '^group:'
+        line: 'group:         files nis winbind systemd'
+
+
+    - name: Configure /etc/auto.master /net - Ubuntu
+      ansible.builtin.lineinfile:
+        path: /etc/auto.master
+        regexp: '^#/net'
+        line: /net -hosts
+
+    - name: Configure /etc/auto.master /folk - Ubuntu
+      ansible.builtin.lineinfile:
+        path: /etc/auto.master
+        line: /folk yp:auto.ctu
+        insertafter: '^/net '
+
+    - name: Start and enable service autofs - Ubuntu
+      ansible.builtin.service:
+        name: autofs
+        state: restarted
+        enabled: yes
+
+    - name: check ypbind status
+      ansible.builtin.shell:
+        cmd: ypwhich
+    - block:
+      - name: check folk folder mount
+        ansible.builtin.shell:
+          cmd: ls /folk/vlm
+      rescue:
+      - debug:
+          msg: /folk can't mount
+
+
+    when: ansible_distribution == 'Ubuntu'
+
+
+
+
+  - block:
+
+    - name: Install nis and autofs - CentOS
+      ansible.builtin.yum:
+        name: "{{ packages }}"
+      vars:
+        packages:
+        - ypbind
+        - autofs
+
+    - name: Edit /etc/sysconfig/network - CentOS
+      ansible.builtin.copy:
+        content: 'NISDOMAIN=swamp'
+        dest: /etc/sysconfig/network
+    - name: Configure nis server - CentOS
+      ansible.builtin.lineinfile:
+        path: /etc/yp.conf
+        line: domain swamp server 128.224.160.15
+        create: yes
+    - name: Configure nsswitch - CentOS 7
+      ansible.builtin.shell:
+        cmd: authconfig --enablenis --update
+      when: ansible_distribution_major_version == '7'
+
+    - name: Configure nsswitch - CentOS 8
+      ansible.builtin.shell:
+        cmd: authselect select nis --force
+      when: ansible_distribution_major_version == '8'
+
+    - name: Start and enable service ypbind - CentOS
+      ansible.builtin.service:
+        name: ypbind
+        state: restarted
+        enabled: yes
+
+
+    - name: Configure /etc/auto.master /folk - Centos
+      ansible.builtin.lineinfile:
+        path: /etc/auto.master
+        regexp: '/folk yp:auto.ctu'
+        insertbefore: '^/net'
+        line: /folk yp:auto.ctu
+    - name: Start and enable service autofs - CentOS
+      ansible.builtin.service:
+        name: autofs
+        state: restarted
+        enabled: yes
+
+    when: ansible_distribution == 'CentOS'
+
+
+  - block:
+    - name: check ypbind status
+      ansible.builtin.shell:
+        cmd: ypwhich
+      register: ypstatus
+    - debug:
+        msg: "{{ ypstatus }}"
+  - block:
+    - name: check folk folder mount
+      ansible.builtin.shell:
+        cmd: ls /folk/vlm
+    rescue:
+    - debug:
+        msg: /folk can't mount
