@@ -1,0 +1,29 @@
+---
+# tasks file for roles/NTP
+- block:
+  - debug:
+      msg: Start Deploying NTP on Ubuntu Clients
+  - name: Install NTP Client
+    ansible.builtin.apt:
+      name: ntp
+      state: present
+
+  - name: Download /etc/ntp.conf
+    ansible.builtin.get_url:
+      url: http://128.224.97.52/Config/ntp.conf
+      dest: /etc/ntp.conf
+      force: true
+  - name: Restart service ntp
+    ansible.builtin.service:
+      name: ntp
+      state: restarted
+      enabled: yes
+  when: ansible_distribution == 'Ubuntu'
+  ignore_errors: true
+
+- name: check ntp status
+  ansible.builtin.shell:
+    cmd: ntpq -p
+  register: ntpstatus
+- debug:
+    msg: "{{ ntpstatus }}"
