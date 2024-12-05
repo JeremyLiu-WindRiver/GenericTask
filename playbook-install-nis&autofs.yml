@@ -44,7 +44,7 @@
     - name: Configure /etc/auto.master /folk - Ubuntu
       ansible.builtin.lineinfile:
         path: /etc/auto.master
-        line: /folk yp:auto.ctu
+        line: /folk yp:auto.{{ site }}
         insertafter: '^/net '
 
     - name: Start and enable service autofs - Ubuntu
@@ -109,9 +109,9 @@
     - name: Configure /etc/auto.master /folk - Centos
       ansible.builtin.lineinfile:
         path: /etc/auto.master
-        regexp: '/folk yp:auto.ctu'
+        regexp: '/folk yp:auto.{{ site }}'
         insertbefore: '^/net'
-        line: /folk yp:auto.ctu
+        line: /folk yp:auto.{{ site }}
     - name: Start and enable service autofs - CentOS
       ansible.builtin.service:
         name: autofs
